@@ -56,7 +56,7 @@ class EmailNotifier:
         subject: str,
         text: str,
         html: str | None = None,
-        attachment_name: str = "report.md",
+        attachment_name: str | None = None,
     ) -> None:
         if not self.enabled:
             logger.info("Email notifications disabled")
@@ -72,12 +72,13 @@ class EmailNotifier:
         message.set_content(text)
         if html:
             message.add_alternative(html, subtype="html")
-        message.add_attachment(
-            text.encode("utf-8"),
-            maintype="text",
-            subtype="markdown",
-            filename=attachment_name,
-        )
+        if attachment_name:
+            message.add_attachment(
+                text.encode("utf-8"),
+                maintype="text",
+                subtype="markdown",
+                filename=attachment_name,
+            )
         await asyncio.to_thread(self._send_message, message)
 
     def _send_message(self, message: EmailMessage) -> None:

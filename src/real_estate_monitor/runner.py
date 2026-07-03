@@ -57,7 +57,6 @@ async def run_scrape_details(
             subject,
             markdown,
             html=html,
-            attachment_name=f"{scraper.site_name}-run-{run_id}.md",
         )
     if send_notifications and changes:
         await TelegramNotifier(settings).send(markdown)

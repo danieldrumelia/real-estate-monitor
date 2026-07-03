@@ -3,7 +3,7 @@ services:
     name: real-estate-monitor-market-report
     runtime: docker
     plan: standard
-    schedule: "0 7 * * *"
+    schedule: "12 10 * * *"
     dockerCommand: real-estate-monitor scheduled-scrape
     envVars:
       - key: DATABASE_URL
@@ -25,7 +25,7 @@ services:
       - key: EMAIL_ENABLED
         value: "true"
       - key: EMAIL_SMTP_HOST
-        value: smtp.gmail.com
+        value: smtp.office365.com
       - key: EMAIL_SMTP_PORT
         value: "587"
       - key: EMAIL_USERNAME

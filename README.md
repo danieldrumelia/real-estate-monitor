@@ -128,23 +128,23 @@ Reports can be sent through any SMTP provider. Add these values to `.env`:
 
 ```bash
 EMAIL_ENABLED=true
-EMAIL_SMTP_HOST=smtp.gmail.com
+EMAIL_SMTP_HOST=smtp.office365.com
 EMAIL_SMTP_PORT=587
-EMAIL_USERNAME=your_email@gmail.com
-EMAIL_PASSWORD=your_app_password
-EMAIL_FROM=your_email@gmail.com
+EMAIL_USERNAME=daniel@drumelia.com
+EMAIL_PASSWORD=your_outlook_password_or_app_password
+EMAIL_FROM=daniel@drumelia.com
 EMAIL_TO=daniel@drumelia.com,person2@drumelia.com,person3@drumelia.com
 EMAIL_USE_TLS=true
 ```
 
-For Gmail, use an app password rather than your normal account password.
+For Microsoft 365/Outlook, use `smtp.office365.com`, port `587`, and TLS enabled. Some work accounts require SMTP AUTH to be enabled by the Microsoft 365 administrator.
 Multiple recipients can be separated with commas:
 
 ```bash
 EMAIL_TO=one@example.com,two@example.com
 ```
 
-The report is sent after every scrape as a formatted HTML email, with the Markdown report attached.
+The report is sent after every scrape as a formatted HTML email.
 
 ## Running While Your Computer Is Off
 

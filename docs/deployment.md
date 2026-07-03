@@ -14,10 +14,10 @@ The website/dashboard can be deployed later. For now, the cloud setup is email-o
 The cron job is scheduled in UTC:
 
 ```yaml
-schedule: "0 7 * * *"
+schedule: "12 10 * * *"
 ```
 
-That is 09:00 in Madrid during summer time. If you later want a different delivery time, update the cron schedule in `render.yaml`.
+That is 12:12 in Madrid during summer time. If you later want a different delivery time, update the cron schedule in `render.yaml`.
 
 ## Render Blueprint
 
@@ -29,16 +29,16 @@ The included `render.yaml` creates:
 When Render asks for private values, fill in:
 
 ```bash
-EMAIL_USERNAME=danieldrumelia@gmail.com
-EMAIL_PASSWORD=your_gmail_app_password
-EMAIL_FROM=danieldrumelia@gmail.com
-EMAIL_TO=danieldrumelia@gmail.com
+EMAIL_USERNAME=daniel@drumelia.com
+EMAIL_PASSWORD=your_outlook_password_or_app_password
+EMAIL_FROM=daniel@drumelia.com
+EMAIL_TO=daniel@drumelia.com
 ```
 
 Later, add the team by changing `EMAIL_TO`:
 
 ```bash
-EMAIL_TO=danieldrumelia@gmail.com,person2@drumelia.com,person3@drumelia.com
+EMAIL_TO=daniel@drumelia.com,person2@drumelia.com,person3@drumelia.com
 ```
 
 ## Required Environment Variables
@@ -70,7 +70,9 @@ real-estate-monitor check-config
 
 ## Notes
 
-- Keep Gmail app passwords private.
+- For Microsoft 365/Outlook sending, use `smtp.office365.com`, port `587`, and TLS enabled.
+- Some Microsoft 365 accounts require SMTP AUTH to be enabled by the administrator.
+- Keep email passwords and app passwords private.
 - `EMAIL_TO` accepts multiple addresses separated by commas.
 - Use PostgreSQL in the cloud so the scraper can compare each run with previous runs.
 - Render cron jobs are cheaper than an always-on worker for one daily email.

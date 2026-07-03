@@ -73,7 +73,6 @@ async def run_all_sites_once(
             "Market Report",
             markdown,
             html=html,
-            attachment_name="market-report.md",
         )
     return results
 

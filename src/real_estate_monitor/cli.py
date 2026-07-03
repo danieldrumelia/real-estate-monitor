@@ -75,7 +75,6 @@ async def _run(args: argparse.Namespace) -> int:
             args.subject,
             markdown,
             html=html,
-            attachment_name="market-report-preview.md",
         )
         print("Test email command finished. Check the inbox and spam folder.")
         return 0
