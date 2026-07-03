@@ -41,4 +41,4 @@ services:
 
 databases:
   - name: real-estate-monitor-db
-    plan: starter
+    plan: basic-256mb

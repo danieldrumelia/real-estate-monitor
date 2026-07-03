@@ -24,7 +24,7 @@ That is 09:00 in Madrid during summer time. If you later want a different delive
 The included `render.yaml` creates:
 
 - `real-estate-monitor-market-report`
-- `real-estate-monitor-db`
+- `real-estate-monitor-db` on the `basic-256mb` Postgres plan
 
 When Render asks for private values, fill in:
 
@@ -74,4 +74,5 @@ real-estate-monitor check-config
 - `EMAIL_TO` accepts multiple addresses separated by commas.
 - Use PostgreSQL in the cloud so the scraper can compare each run with previous runs.
 - Render cron jobs are cheaper than an always-on worker for one daily email.
+- Render's old `starter` Postgres plan is no longer available for new databases.
 - The dashboard/web login work is intentionally left for later.
