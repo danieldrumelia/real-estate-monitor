@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "real-estate-monitor"
+version = "0.1.0"
+description = "Monitor real estate websites for listing changes."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "curl-cffi>=0.7,<1",
+    "httpx>=0.27,<1",
+    "playwright>=1.45,<2",
+    "psycopg[binary]>=3.2,<4",
+    "python-dotenv>=1.0",
+    "SQLAlchemy>=2.0,<3",
+    "tenacity>=8.3,<10",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2,<9",
+]
+
+[project.scripts]
+real-estate-monitor = "real_estate_monitor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
