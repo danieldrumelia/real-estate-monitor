@@ -12,7 +12,7 @@ Each website scraper implements the same interface, so portals can be added with
 - Run-to-run detection for new listings, removed listings, and price changes.
 - Markdown reports.
 - Optional email, Telegram, and WhatsApp notifications.
-- Daily cloud scheduler for automatic morning scrapes.
+- Daily cloud cron job for automatic morning scrapes.
 - Comma-separated team email recipients.
 - Optional dashboard login for hosted/private access.
 - `.env` configuration, logging, retries, type hints, and dataclass models.
@@ -150,13 +150,13 @@ The report is sent after every scrape as a formatted HTML email, with the Markdo
 
 To run while your Mac is off, deploy the project to a cloud service with:
 
-- a worker process for the daily scheduler,
+- a daily cron job for the Market Report email,
 - a hosted PostgreSQL database,
 - the included Dockerfile for Playwright browser support.
 
 See `docs/deployment.md` for the production email setup.
 
-The included `render.yaml` can be used as a Render blueprint for the hosted email worker and PostgreSQL database.
+The included `render.yaml` can be used as a Render blueprint for the hosted email cron job and PostgreSQL database.
 
 ## Add Another Website
 

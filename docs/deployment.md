@@ -6,25 +6,24 @@ The website/dashboard can be deployed later. For now, the cloud setup is email-o
 
 ## What Runs In The Cloud
 
-- One always-on worker: `real-estate-monitor scheduler`
+- One Render cron job: `real-estate-monitor scheduled-scrape`
 - One PostgreSQL database to remember previous scrapes
-- One daily Market Report email after the scrape finishes
+- One combined Market Report email after the scrape finishes
 - Docker-based Playwright browser support
 
-The worker uses:
+The cron job is scheduled in UTC:
 
-```bash
-SCRAPE_SCHEDULE_TIME=09:00
-SCRAPE_SCHEDULE_TIMEZONE=Europe/Madrid
+```yaml
+schedule: "0 7 * * *"
 ```
 
-You can change `SCRAPE_SCHEDULE_TIME` later when you choose the final morning time.
+That is 09:00 in Madrid during summer time. If you later want a different delivery time, update the cron schedule in `render.yaml`.
 
 ## Render Blueprint
 
 The included `render.yaml` creates:
 
-- `real-estate-monitor-email-worker`
+- `real-estate-monitor-market-report`
 - `real-estate-monitor-db`
 
 When Render asks for private values, fill in:
@@ -63,12 +62,6 @@ Run one full scrape and send one combined Market Report:
 real-estate-monitor scheduled-scrape
 ```
 
-Run the daily cloud worker:
-
-```bash
-real-estate-monitor scheduler
-```
-
 Check safe settings:
 
 ```bash
@@ -80,4 +73,5 @@ real-estate-monitor check-config
 - Keep Gmail app passwords private.
 - `EMAIL_TO` accepts multiple addresses separated by commas.
 - Use PostgreSQL in the cloud so the scraper can compare each run with previous runs.
+- Render cron jobs are cheaper than an always-on worker for one daily email.
 - The dashboard/web login work is intentionally left for later.

@@ -1,9 +1,10 @@
 services:
-  - type: worker
-    name: real-estate-monitor-email-worker
+  - type: cron
+    name: real-estate-monitor-market-report
     runtime: docker
     plan: starter
-    dockerCommand: real-estate-monitor scheduler
+    schedule: "0 7 * * *"
+    dockerCommand: real-estate-monitor scheduled-scrape
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -21,10 +22,6 @@ services:
         value: "0"
       - key: SCRAPER_RETRIES
         value: "3"
-      - key: SCRAPE_SCHEDULE_TIME
-        value: "09:00"
-      - key: SCRAPE_SCHEDULE_TIMEZONE
-        value: Europe/Madrid
       - key: EMAIL_ENABLED
         value: "true"
       - key: EMAIL_SMTP_HOST
