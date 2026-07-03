@@ -41,12 +41,17 @@ class GenericAgencyScraper(PropertyScraper):
         async with async_playwright() as playwright:
             launch_options: dict[str, object] = {"headless": self.config.headless}
             executable_path = _chrome_for_testing_executable()
-            if executable_path and self.config.headless:
-                launch_options["executable_path"] = executable_path
+            if self.config.headless:
                 launch_options["args"] = [
                     "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-background-networking",
+                    "--disable-background-timer-throttling",
+                    "--disable-renderer-backgrounding",
                     "--no-sandbox",
                 ]
+            if executable_path and self.config.headless:
+                launch_options["executable_path"] = executable_path
             browser = await playwright.chromium.launch(**launch_options)
             try:
                 return await self._scrape_with_browser(browser)
@@ -54,8 +59,7 @@ class GenericAgencyScraper(PropertyScraper):
                 await browser.close()
 
     async def _scrape_with_browser(self, browser: Browser) -> list[ListingSnapshot]:
-        page = await browser.new_page()
-        page.set_default_timeout(self.config.timeout_ms)
+        page = await self._new_page(browser)
         try:
             listings: dict[str, ListingSnapshot] = {}
             current_url = self.config.start_url
@@ -114,6 +118,19 @@ class GenericAgencyScraper(PropertyScraper):
             return list(listings.values())
         finally:
             await page.close()
+
+    async def _new_page(self, browser: Browser) -> Page:
+        page = await browser.new_page()
+        page.set_default_timeout(self.config.timeout_ms)
+        await page.route(
+            "**/*",
+            lambda route: (
+                route.abort()
+                if route.request.resource_type in {"image", "media", "font", "stylesheet"}
+                else route.continue_()
+            ),
+        )
+        return page
 
     def _emit_progress(self, current_page: int | None, total_pages: int | None, listing_count: int) -> None:
         if self.progress_callback:

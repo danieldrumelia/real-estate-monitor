@@ -2,7 +2,7 @@ services:
   - type: cron
     name: real-estate-monitor-market-report
     runtime: docker
-    plan: starter
+    plan: standard
     schedule: "0 7 * * *"
     dockerCommand: real-estate-monitor scheduled-scrape
     envVars:

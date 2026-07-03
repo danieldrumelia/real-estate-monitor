@@ -25,8 +25,7 @@ class SolvillaScraper(GenericAgencyScraper):
         )
 
     async def _scrape_with_browser(self, browser: Browser) -> list[ListingSnapshot]:
-        page = await browser.new_page()
-        page.set_default_timeout(self.config.timeout_ms)
+        page = await self._new_page(browser)
         try:
             await page.goto(self.config.start_url, wait_until="domcontentloaded")
             try:

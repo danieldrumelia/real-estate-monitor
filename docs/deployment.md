@@ -74,5 +74,6 @@ real-estate-monitor check-config
 - `EMAIL_TO` accepts multiple addresses separated by commas.
 - Use PostgreSQL in the cloud so the scraper can compare each run with previous runs.
 - Render cron jobs are cheaper than an always-on worker for one daily email.
+- The cron job uses the `standard` plan because Playwright/Chromium can exceed the 512 MB starter limit.
 - Render's old `starter` Postgres plan is no longer available for new databases.
 - The dashboard/web login work is intentionally left for later.
