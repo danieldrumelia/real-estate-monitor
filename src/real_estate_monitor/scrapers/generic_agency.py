@@ -359,6 +359,13 @@ _DOM_EXTRACTION_SCRIPT = """
     for (let i = 0; i < 9 && node; i += 1) {
       const text = (node.innerText || node.textContent || '').trim();
       if ((/€|Price on Application|Precio/i.test(text) || referenceFrom(text)) && text.length > 40) {
+        let card = node;
+        for (let j = 0; j < 7 && card; j += 1) {
+          if (card.querySelector('img, picture, source')) {
+            return card;
+          }
+          card = card.parentElement;
+        }
         return node;
       }
       node = node.parentElement;
@@ -380,6 +387,62 @@ _DOM_EXTRACTION_SCRIPT = """
     return (span?.textContent || anchorLabel(anchor)).trim();
   }
 
+  function firstSrcsetUrl(value) {
+    if (!value) return null;
+    return String(value).split(',')[0]?.trim().split(/\\s+/)[0] || null;
+  }
+
+  function absoluteUrl(value) {
+    if (!value || String(value).startsWith('data:')) return null;
+    try {
+      return new URL(value, location.href).href;
+    } catch {
+      return null;
+    }
+  }
+
+  function imageFromElement(element) {
+    if (!element) return null;
+    const attributes = [
+      'currentSrc',
+      'src',
+      'data-src',
+      'data-lazy-src',
+      'data-original',
+      'data-image',
+      'data-bg',
+      'data-background',
+    ];
+    for (const attribute of attributes) {
+      const value = attribute === 'currentSrc' ? element.currentSrc : element.getAttribute(attribute);
+      const url = absoluteUrl(value);
+      if (url) return url;
+    }
+    for (const attribute of ['srcset', 'data-srcset', 'data-lazy-srcset']) {
+      const url = absoluteUrl(firstSrcsetUrl(element.getAttribute(attribute)));
+      if (url) return url;
+    }
+    return null;
+  }
+
+  function imageFor(card, anchor) {
+    const containers = [card, anchor, card.parentElement, card.closest('article, li, section, div')].filter(Boolean);
+    for (const container of containers) {
+      for (const image of [...container.querySelectorAll('img')]) {
+        const url = imageFromElement(image);
+        if (url) return url;
+      }
+      for (const source of [...container.querySelectorAll('source')]) {
+        const url = absoluteUrl(firstSrcsetUrl(source.getAttribute('srcset') || source.getAttribute('data-srcset')));
+        if (url) return url;
+      }
+      const background = String(container.getAttribute('style') || '').match(/background-image:\s*url\(["']?([^"')]+)["']?\)/i);
+      const backgroundUrl = absoluteUrl(background?.[1]);
+      if (backgroundUrl) return backgroundUrl;
+    }
+    return null;
+  }
+
   const byRef = new Map();
   for (const anchor of anchors) {
     const href = new URL(anchor.getAttribute('href'), location.href).href;
@@ -389,7 +452,7 @@ _DOM_EXTRACTION_SCRIPT = """
     if (!ref || byRef.has(ref)) {
       continue;
     }
-    const image = card.querySelector('img')?.currentSrc || card.querySelector('img')?.src || null;
+    const image = imageFor(card, anchor);
     byRef.set(ref, {
       title: anchorLabel(anchor),
       cleanTitle: cleanTitleFor(card, anchor),

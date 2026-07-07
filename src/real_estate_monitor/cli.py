@@ -160,6 +160,7 @@ def _example_report_sections() -> list[SiteReportSection]:
         url="https://www.solvilla.es/properties/example-sv2257",
         title="Contemporary Villa in Nueva Andalucia",
         price=4_950_000,
+        raw={"image": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&h=260&fit=crop"},
         scraped_at=now,
     )
     dm_current = ListingSnapshot(
@@ -168,6 +169,7 @@ def _example_report_sections() -> list[SiteReportSection]:
         url="https://www.dmproperties.com/property/example-dm5021",
         title="Penthouse with Sea Views",
         price=2_750_000,
+        raw={"image": "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=400&h=260&fit=crop"},
         scraped_at=now,
     )
     dm_previous = ListingSnapshot(
@@ -176,6 +178,7 @@ def _example_report_sections() -> list[SiteReportSection]:
         url=dm_current.url,
         title=dm_current.title,
         price=2_950_000,
+        raw=dm_current.raw,
         scraped_at=now,
     )
     panorama_removed = ListingSnapshot(
@@ -184,6 +187,7 @@ def _example_report_sections() -> list[SiteReportSection]:
         url="https://www.panoramamarbella.com/properties/example-panr-15123",
         title="Apartment Near Marbella Club",
         price=1_250_000,
+        raw={"image": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&h=260&fit=crop"},
         scraped_at=now,
     )
     return [

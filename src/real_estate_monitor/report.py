@@ -68,7 +68,7 @@ def build_html_email_report(site: str, run_id: int, changes: list[ListingChange]
     if not rows:
         rows = """
         <tr>
-          <td colspan="3" style="padding:16px;color:#475569;">No changes detected.</td>
+          <td colspan="4" style="padding:16px;color:#475569;">No changes detected.</td>
         </tr>
         """
 
@@ -104,6 +104,7 @@ def build_html_email_report(site: str, run_id: int, changes: list[ListingChange]
                   <thead>
                     <tr style="background:#f8fafc;">
                       <th align="left" style="padding:10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;">Type</th>
+                      <th align="left" style="padding:10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;">Photo</th>
                       <th align="left" style="padding:10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;">Listing</th>
                       <th align="left" style="padding:10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#475569;">Price</th>
                     </tr>
@@ -231,7 +232,7 @@ def _combined_site_block(section: SiteReportSection) -> str:
     if section.error:
         rows = f"""
         <tr>
-          <td colspan="4" style="padding:13px 12px;border-bottom:1px solid #e7e1d8;color:#84442e;">{escape(section.error)}</td>
+          <td colspan="5" style="padding:13px 12px;border-bottom:1px solid #e7e1d8;color:#84442e;">{escape(section.error)}</td>
         </tr>
         """
     elif section.changes:
@@ -239,7 +240,7 @@ def _combined_site_block(section: SiteReportSection) -> str:
     else:
         rows = """
         <tr>
-          <td colspan="4" style="padding:13px 12px;border-bottom:1px solid #e7e1d8;color:#8a857f;">No changes detected.</td>
+          <td colspan="5" style="padding:13px 12px;border-bottom:1px solid #e7e1d8;color:#8a857f;">No changes detected.</td>
         </tr>
         """
 
@@ -250,6 +251,7 @@ def _combined_site_block(section: SiteReportSection) -> str:
         <thead>
           <tr style="background:#181818;">
             <th align="left" style="padding:10px 12px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#c7af87;">Change</th>
+            <th align="left" style="padding:10px 12px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#c7af87;">Photo</th>
             <th align="left" style="padding:10px 12px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#c7af87;">Reference</th>
             <th align="left" style="padding:10px 12px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#c7af87;">Listing</th>
             <th align="left" style="padding:10px 12px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#c7af87;">Price</th>
@@ -268,9 +270,11 @@ def _combined_change_row(change: ListingChange) -> str:
         price = f"{_money(change.previous.price, listing.currency)} -> {_money(listing.price, listing.currency)}"
     if change.change_type == ChangeType.REMOVED:
         price = _money(listing.price, listing.currency)
+    image = _listing_image_cell(listing.raw.get("image"), border_color="#e7e1d8")
     return f"""
     <tr>
       <td style="padding:12px;border-bottom:1px solid #e7e1d8;font-size:13px;color:#84442e;">{escape(_change_label(change.change_type))}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #e7e1d8;">{image}</td>
       <td style="padding:12px;border-bottom:1px solid #e7e1d8;font-size:13px;color:#181818;">{escape(listing.external_id)}</td>
       <td style="padding:12px;border-bottom:1px solid #e7e1d8;font-size:13px;"><a href="{escape(listing.url)}" style="color:#181818;text-decoration:underline;text-decoration-color:#c7af87;">{escape(listing.title)}</a></td>
       <td style="padding:12px;border-bottom:1px solid #e7e1d8;font-size:13px;color:#181818;">{escape(price)}</td>
@@ -285,13 +289,25 @@ def _change_row(change: ListingChange) -> str:
         price = f"{_money(change.previous.price, listing.currency)} -> {_money(listing.price, listing.currency)}"
     title = escape(listing.title)
     url = escape(listing.url)
+    image = _listing_image_cell(listing.raw.get("image"), border_color="#e5e7eb")
     return f"""
     <tr>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#334155;">{escape(change.change_type.value.replace("_", " ").title())}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e5e7eb;">{image}</td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;font-size:13px;"><a href="{url}" style="color:#0f766e;text-decoration:none;">{title}</a></td>
       <td style="padding:10px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#334155;">{escape(price)}</td>
     </tr>
     """
+
+
+def _listing_image_cell(image_url: object, *, border_color: str) -> str:
+    if not isinstance(image_url, str) or not image_url.startswith(("http://", "https://")):
+        return '<span style="font-size:12px;color:#8a857f;">-</span>'
+    escaped_url = escape(image_url, quote=True)
+    return (
+        f'<img src="{escaped_url}" alt="" width="88" height="58" '
+        f'style="display:block;width:88px;height:58px;object-fit:cover;border:1px solid {border_color};">'
+    )
 
 
 def _change_label(change_type: ChangeType) -> str:
