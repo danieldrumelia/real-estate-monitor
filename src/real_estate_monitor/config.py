@@ -24,6 +24,7 @@ class Settings:
     scraper_timeout_ms: int
     scraper_max_pages: int
     scraper_retries: int
+    scraper_min_listing_ratio: float
     telegram_enabled: bool
     telegram_bot_token: str | None
     telegram_chat_id: str | None
@@ -57,6 +58,7 @@ class Settings:
             scraper_timeout_ms=int(os.getenv("SCRAPER_TIMEOUT_MS", "30000")),
             scraper_max_pages=int(os.getenv("SCRAPER_MAX_PAGES", "0")),
             scraper_retries=int(os.getenv("SCRAPER_RETRIES", "3")),
+            scraper_min_listing_ratio=float(os.getenv("SCRAPER_MIN_LISTING_RATIO", "0.85")),
             telegram_enabled=_bool(os.getenv("TELEGRAM_ENABLED"), False),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN") or None,
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID") or None,

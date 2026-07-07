@@ -9,6 +9,10 @@ from real_estate_monitor.models import ListingSnapshot
 ProgressCallback = Callable[[str, Optional[int], Optional[int], int], None]
 
 
+class ScrapeIncompleteError(RuntimeError):
+    """Raised when a scrape clearly did not collect a complete listing set."""
+
+
 class PropertyScraper(ABC):
     site_name: str
     progress_callback: ProgressCallback | None = None

@@ -9,7 +9,7 @@ from real_estate_monitor.diff import detect_changes
 from real_estate_monitor.notify import EmailNotifier, TelegramNotifier, WhatsAppNotifier
 from real_estate_monitor.report import build_html_email_report, build_markdown_report, write_report
 from real_estate_monitor.repository import ListingRepository
-from real_estate_monitor.scrapers.base import PropertyScraper
+from real_estate_monitor.scrapers.base import PropertyScraper, ScrapeIncompleteError
 from real_estate_monitor.models import ListingChange
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,12 @@ async def run_scrape_details(
     with session_factory() as session:
         repository = ListingRepository(session)
         previous = repository.latest_snapshots(scraper.site_name)
+        _validate_listing_count(
+            scraper.site_name,
+            current_count=len(listings),
+            previous_count=len(previous),
+            minimum_ratio=settings.scraper_min_listing_ratio,
+        )
         changes = detect_changes(previous, listings)
         run_id = repository.save_run(scraper.site_name, listings)
 
@@ -71,3 +77,22 @@ def _site_display_name(site_name: str) -> str:
         "marbella_ev": "Marbella EV",
     }
     return names.get(site_name, site_name.replace("_", " ").title())
+
+
+def _validate_listing_count(
+    site_name: str,
+    *,
+    current_count: int,
+    previous_count: int,
+    minimum_ratio: float,
+) -> None:
+    if previous_count <= 0:
+        return
+    minimum_count = int(previous_count * minimum_ratio)
+    if current_count >= minimum_count:
+        return
+    raise ScrapeIncompleteError(
+        f"Rejected {site_name} scrape because it only found {current_count} listings. "
+        f"The previous successful run had {previous_count}, and the safety minimum is {minimum_count}. "
+        "This looks like an incomplete scrape, so it was not saved."
+    )
