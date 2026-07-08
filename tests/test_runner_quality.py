@@ -63,6 +63,36 @@ def test_rejects_large_listing_count_drop_before_saving(tmp_path: Path) -> None:
     assert len(latest) == 10
 
 
+def test_rejects_suspicious_removed_listing_burst_before_saving(tmp_path: Path) -> None:
+    engine = create_db_engine("sqlite:///:memory:")
+    session_factory = create_session_factory(engine)
+    settings = _settings(tmp_path)
+
+    asyncio.run(
+        run_scrape_details(
+            FakeScraper([listing(number) for number in range(100)]),
+            settings,
+            session_factory,
+            send_notifications=False,
+        )
+    )
+
+    with pytest.raises(ScrapeIncompleteError, match="detected 12 removed listings"):
+        asyncio.run(
+            run_scrape_details(
+                FakeScraper([listing(number) for number in range(88)]),
+                settings,
+                session_factory,
+                send_notifications=False,
+            )
+        )
+
+    with session_factory() as session:
+        latest = ListingRepository(session).latest_snapshots("solvilla")
+
+    assert len(latest) == 100
+
+
 def _settings(report_dir: Path) -> Settings:
     return Settings(
         database_url="sqlite:///:memory:",
@@ -73,6 +103,7 @@ def _settings(report_dir: Path) -> Settings:
         scraper_max_pages=0,
         scraper_retries=3,
         scraper_min_listing_ratio=0.85,
+        scraper_max_removals_per_run=10,
         telegram_enabled=False,
         telegram_bot_token=None,
         telegram_chat_id=None,

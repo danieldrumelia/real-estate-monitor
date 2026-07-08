@@ -10,7 +10,7 @@ from real_estate_monitor.notify import EmailNotifier, TelegramNotifier, WhatsApp
 from real_estate_monitor.report import build_html_email_report, build_markdown_report, write_report
 from real_estate_monitor.repository import ListingRepository
 from real_estate_monitor.scrapers.base import PropertyScraper, ScrapeIncompleteError
-from real_estate_monitor.models import ListingChange
+from real_estate_monitor.models import ChangeType, ListingChange
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,11 @@ async def run_scrape_details(
             minimum_ratio=settings.scraper_min_listing_ratio,
         )
         changes = detect_changes(previous, listings)
+        _validate_removal_count(
+            scraper.site_name,
+            changes=changes,
+            max_removals=settings.scraper_max_removals_per_run,
+        )
         run_id = repository.save_run(scraper.site_name, listings)
 
     markdown = build_markdown_report(scraper.site_name, run_id, changes)
@@ -95,4 +100,25 @@ def _validate_listing_count(
         f"Rejected {site_name} scrape because it only found {current_count} listings. "
         f"The previous successful run had {previous_count}, and the safety minimum is {minimum_count}. "
         "This looks like an incomplete scrape, so it was not saved."
+    )
+
+
+def _validate_removal_count(
+    site_name: str,
+    *,
+    changes: list[ListingChange],
+    max_removals: int,
+) -> None:
+    if max_removals <= 0:
+        return
+    removed = [change for change in changes if change.change_type == ChangeType.REMOVED]
+    if len(removed) <= max_removals:
+        return
+    references = ", ".join(change.listing.external_id for change in removed[:5])
+    if len(removed) > 5:
+        references = f"{references}, ..."
+    raise ScrapeIncompleteError(
+        f"Rejected {site_name} scrape because it detected {len(removed)} removed listings "
+        f"and the safety maximum is {max_removals}. This looks like an incomplete scrape, "
+        f"so it was not saved. First missing references: {references}"
     )

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import re
 
 from playwright.async_api import Browser, Page
 
 from real_estate_monitor.models import ListingSnapshot
 from real_estate_monitor.scrapers.generic_agency import AgencyScraperConfig, GenericAgencyScraper
+
+logger = logging.getLogger(__name__)
 
 
 class PanoramaScraper(GenericAgencyScraper):
@@ -38,22 +41,26 @@ class PanoramaScraper(GenericAgencyScraper):
             if self.config.max_pages > 0:
                 total_pages = min(total_pages, self.config.max_pages)
 
-            seen_pages: set[str] = {page.url}
             for page_number in range(1, total_pages + 1):
-                if page_number > 1:
-                    current_url = f"{self.config.start_url}?ipage={page_number}"
-                    if current_url in seen_pages:
-                        break
-                    seen_pages.add(current_url)
-                    await page.goto(current_url, wait_until="domcontentloaded")
-                    try:
-                        await page.wait_for_load_state("networkidle", timeout=5000)
-                    except Exception:
-                        pass
-
-                snapshots = await self._extract_loaded_page(page)
+                current_url = (
+                    self.config.start_url
+                    if page_number == 1
+                    else f"{self.config.start_url}?ipage={page_number}"
+                )
+                logger.info("Scraping panorama page %s/%s: %s", page_number, total_pages, current_url)
+                snapshots = await self._scrape_page_with_retries(page, current_url)
+                new_count = 0
                 for snapshot in snapshots:
+                    if snapshot.external_id not in listings:
+                        new_count += 1
                     listings[snapshot.external_id] = snapshot
+                logger.info(
+                    "panorama page %s produced %s listings (%s new, %s total)",
+                    page_number,
+                    len(snapshots),
+                    new_count,
+                    len(listings),
+                )
                 self._emit_progress(page_number, total_pages, len(listings))
 
             return list(listings.values())
