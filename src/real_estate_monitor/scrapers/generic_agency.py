@@ -245,9 +245,10 @@ class GenericAgencyScraper(PropertyScraper):
             location=_extract_location(text, title, external_id),
             price=price,
             currency="EUR",
-            beds=_extract_float(text, r"(\d+(?:[.,]\d+)?)\s*(?:Beds?|Bedrooms?|Dorms?|Dormitorios?)\b"),
-            baths=_extract_float(text, r"(\d+(?:[.,]\d+)?)\s*(?:Baths?|Bathrooms?|Baños?)\b"),
-            built_area_m2=_extract_float(text, r"(\d+(?:[.,]\d+)?)\s*m(?:²|2)?\s*(?:Built|Interior|Construido|built|interior)?"),
+            beds=_extract_labeled_float(text, ("Beds", "Bedrooms", "Dorms", "Dormitorios")),
+            baths=_extract_labeled_float(text, ("Baths", "Bathrooms", "Baños")),
+            built_area_m2=_extract_area(text, ("Built", "Interior", "Construido")),
+            plot_area_m2=_extract_area(text, ("Plot", "Parcela")),
             raw={
                 "source_text": text,
                 "image": item.get("image"),
@@ -315,20 +316,60 @@ def _extract_float(text: str, pattern: str) -> float | None:
     match = re.search(pattern, text, re.I)
     if not match:
         return None
-    return float(match.group(1).replace(",", "."))
+    return _parse_float(match.group(1))
+
+
+def _parse_float(value: str) -> float:
+    normalized = value.strip()
+    if re.search(r"^\d{1,3}(?:[.,]\d{3})+$", normalized):
+        normalized = re.sub(r"[.,]", "", normalized)
+    else:
+        normalized = normalized.replace(",", ".")
+    return float(normalized)
+
+
+def _extract_labeled_float(text: str, labels: tuple[str, ...]) -> float | None:
+    label_pattern = "|".join(re.escape(label) for label in labels)
+    patterns = (
+        rf"(?:{label_pattern})\s*(\d+(?:[.,]\d+)?)\b",
+        rf"(\d+(?:[.,]\d+)?)\s*(?:{label_pattern})\b",
+    )
+    for pattern in patterns:
+        value = _extract_float(text, pattern)
+        if value is not None:
+            return value
+    return None
+
+
+def _extract_area(text: str, labels: tuple[str, ...]) -> float | None:
+    label_pattern = "|".join(re.escape(label) for label in labels)
+    patterns = (
+        rf"(?:{label_pattern})\s*(\d+(?:[.,]\d+)?)\s*m(?:²|2)?\b",
+        rf"(\d+(?:[.,]\d+)?)\s*m(?:²|2)?\s*(?:{label_pattern})\b",
+    )
+    for pattern in patterns:
+        value = _extract_float(text, pattern)
+        if value is not None:
+            return value
+    return None
 
 
 def _extract_location(text: str, title: str, external_id: str) -> str | None:
     before_title = text.split(title, 1)[0]
     before_title = before_title.replace(external_id, "")
-    before_title = re.sub(r"Previous|Next|Anterior|Siguiente|For sale|En venta|New Listing|Exclusive", "", before_title, flags=re.I)
+    before_title = re.sub(
+        r"Add to list|Previous|Next|Anterior|Siguiente|For sale|En venta|New Listing|Exclusive Agency|Exclusive",
+        "",
+        before_title,
+        flags=re.I,
+    )
     parts = [part.strip(" -|·") for part in before_title.splitlines() if part.strip()]
     if parts:
         return _normalize_space(parts[-1]) or None
     return None
 
 
-_DOM_EXTRACTION_SCRIPT = """
+_DOM_EXTRACTION_SCRIPT = r"""
 (config) => {
   const detailPatterns = config.detailUrlPatterns.map((pattern) => new RegExp(pattern, 'i'));
   const referencePatterns = config.referencePatterns.map((pattern) => new RegExp(pattern, 'i'));
