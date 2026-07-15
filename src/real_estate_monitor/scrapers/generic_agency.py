@@ -233,6 +233,8 @@ class GenericAgencyScraper(PropertyScraper):
         url = urljoin(self.config.start_url, item.get("url") or "")
         external_id = self._external_id(url, text)
         title = _clean_title(item.get("cleanTitle") or item.get("title") or external_id or "")
+        if _looks_like_price_title(title):
+            title = external_id or ""
         if not title or not external_id:
             return None
 
@@ -273,6 +275,10 @@ def _clean_title(value: str) -> str:
     title = _normalize_space(value)
     title = re.sub(r"^(Image:\s*)", "", title, flags=re.I)
     return title
+
+
+def _looks_like_price_title(value: str) -> bool:
+    return bool(re.match(r"^€\s*[\d.,\s]+", value))
 
 
 def _chrome_for_testing_executable() -> str | None:
@@ -415,6 +421,7 @@ _DOM_EXTRACTION_SCRIPT = r"""
   }
 
   function cleanTitleFor(card, anchor) {
+    const label = anchorLabel(anchor);
     const spans = [...card.querySelectorAll('span')];
     const span = spans.find((node) => {
       const text = (node.textContent || '').trim();
@@ -425,7 +432,26 @@ _DOM_EXTRACTION_SCRIPT = r"""
         (className.includes('before:content') || className.includes('leading-10'))
       );
     });
-    return (span?.textContent || anchorLabel(anchor)).trim();
+    if (span) return span.textContent.trim();
+
+    const lines = (card.innerText || card.textContent || '')
+      .split(/\n+/)
+      .map((text) => text.trim())
+      .filter(Boolean);
+    const meaningfulLine = lines.find((text) => (
+      text.length > 10 &&
+      text !== label &&
+      !/^€\s*[\d.,\s]+/.test(text) &&
+      !/^(from|to|save|new build|\d+\s+images?)$/i.test(text) &&
+      !/^\d+\s*beds?\b/i.test(text) &&
+      !/^(?:DMCO|DMD|DM|PANR|SV|W-)\w[\w-]*$/i.test(text)
+    ));
+    return (meaningfulLine || label).trim();
+  }
+
+  function isPriceRow(anchor) {
+    const text = (anchor.innerText || anchor.textContent || anchorLabel(anchor) || '').trim();
+    return /^€\s*[\d.,\s]+/.test(text) && /\b(beds?|baths?|built)\b/i.test(text);
   }
 
   function firstSrcsetUrl(value) {
@@ -488,12 +514,15 @@ _DOM_EXTRACTION_SCRIPT = r"""
   for (const anchor of anchors) {
     const href = new URL(anchor.getAttribute('href'), location.href).href;
     const card = cardFor(anchor);
-    const text = (card.innerText || card.textContent || '').trim();
-    const ref = referenceFrom(href) || referenceFrom(text);
+    const cardText = (card.innerText || card.textContent || '').trim();
+    const ref = referenceFrom(href) || referenceFrom(cardText);
     if (!ref || byRef.has(ref)) {
       continue;
     }
     const image = imageFor(card, anchor);
+    const text = isPriceRow(anchor)
+      ? `${anchor.innerText || anchor.textContent || ''}\n${ref}`.trim()
+      : cardText;
     byRef.set(ref, {
       title: anchorLabel(anchor),
       cleanTitle: cleanTitleFor(card, anchor),
