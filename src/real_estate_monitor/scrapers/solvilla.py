@@ -53,7 +53,18 @@ class SolvillaScraper(GenericAgencyScraper):
             )
 
             for page_number in range(1, total_pages + 1):
-                snapshots = await self._extract_page_number(page, page_number, listings.keys())
+                try:
+                    snapshots = await self._extract_page_number(page, page_number, listings.keys())
+                except ScrapeIncompleteError:
+                    if _has_safe_listing_count(len(listings), total_properties):
+                        logger.warning(
+                            "Solvilla page %s could not be loaded, but %s listings were already collected; "
+                            "treating this as the end of pagination",
+                            page_number,
+                            len(listings),
+                        )
+                        break
+                    raise
                 previous_count = len(listings)
                 for snapshot in snapshots:
                     listings[snapshot.external_id] = snapshot
@@ -165,11 +176,9 @@ class SolvillaScraper(GenericAgencyScraper):
                 return False
 
     def _validate_expected_total(self, listing_count: int, total_properties: int | None) -> None:
-        if not total_properties:
+        if _has_safe_listing_count(listing_count, total_properties):
             return
-        minimum_count = int(total_properties * MIN_EXPECTED_LISTING_RATIO)
-        if listing_count >= minimum_count:
-            return
+        minimum_count = int((total_properties or 0) * MIN_EXPECTED_LISTING_RATIO)
         raise ScrapeIncompleteError(
             f"Solvilla scrape found {listing_count} listings, but the site says there are "
             f"{total_properties}. The safety minimum is {minimum_count}, so this run was not saved."
@@ -179,3 +188,9 @@ class SolvillaScraper(GenericAgencyScraper):
 def _has_new_listing(snapshots: list[ListingSnapshot], known_external_ids: Iterable[str]) -> bool:
     known_ids = set(known_external_ids)
     return any(snapshot.external_id not in known_ids for snapshot in snapshots)
+
+
+def _has_safe_listing_count(listing_count: int, total_properties: int | None) -> bool:
+    if not total_properties:
+        return True
+    return listing_count >= int(total_properties * MIN_EXPECTED_LISTING_RATIO)
