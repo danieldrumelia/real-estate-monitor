@@ -92,3 +92,21 @@ def test_dmproperties_price_row_title_falls_back_to_reference() -> None:
     assert snapshot is not None
     assert snapshot.title == "DMD1586-03"
     assert snapshot.price == 1_493_000
+
+
+def test_dmproperties_sold_unit_uses_parent_development_title() -> None:
+    scraper = DMPropertiesScraper(headless=True, timeout_ms=30000, max_pages=0, retries=1)
+
+    snapshot = scraper._parse_item(
+        {
+            "url": "https://www.dmproperties.com/property/san-pedro-de-alcantara/s-pedro-centro/apartments/DMD1552-01",
+            "title": "Sold 3 beds · 2 baths · 172 m2 built ›",
+            "cleanTitle": "S. Pedro Centro, Thirty five modern apartments in the heart of San Pedro",
+            "text": "Sold\n3 beds · 2 baths · 172 m2 built\n›\nDMD1552-01",
+            "image": None,
+        }
+    )
+
+    assert snapshot is not None
+    assert snapshot.external_id == "DMD1552-01"
+    assert snapshot.title == "S. Pedro Centro, Thirty five modern apartments in the heart of San Pedro"

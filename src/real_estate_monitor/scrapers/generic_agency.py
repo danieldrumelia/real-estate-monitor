@@ -435,7 +435,7 @@ _DOM_EXTRACTION_SCRIPT = r"""
       );
     });
     if (span) return span.textContent.trim();
-    if (!config.preferCardTitleForPriceRows || !isPriceRow(anchor)) {
+    if (!config.preferCardTitleForPriceRows || !isUnitRow(anchor)) {
       return label;
     }
 
@@ -454,9 +454,9 @@ _DOM_EXTRACTION_SCRIPT = r"""
     return (meaningfulLine || label).trim();
   }
 
-  function isPriceRow(anchor) {
+  function isUnitRow(anchor) {
     const text = (anchor.innerText || anchor.textContent || anchorLabel(anchor) || '').trim();
-    return /^€\s*[\d.,\s]+/.test(text) && /\b(beds?|baths?|built)\b/i.test(text);
+    return /(?:^€\s*[\d.,\s]+|^sold\b)/i.test(text) && /\b(beds?|baths?|built)\b/i.test(text);
   }
 
   function firstSrcsetUrl(value) {
@@ -525,7 +525,7 @@ _DOM_EXTRACTION_SCRIPT = r"""
       continue;
     }
     const image = imageFor(card, anchor);
-    const text = config.preferCardTitleForPriceRows && isPriceRow(anchor)
+    const text = config.preferCardTitleForPriceRows && isUnitRow(anchor)
       ? `${anchor.innerText || anchor.textContent || ''}\n${ref}`.trim()
       : cardText;
     byRef.set(ref, {
