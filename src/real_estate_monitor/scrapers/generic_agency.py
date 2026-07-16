@@ -29,6 +29,7 @@ class AgencyScraperConfig:
     timeout_ms: int = 30_000
     max_pages: int = 0
     retries: int = 3
+    prefer_card_title_for_price_rows: bool = False
 
 
 class GenericAgencyScraper(PropertyScraper):
@@ -168,6 +169,7 @@ class GenericAgencyScraper(PropertyScraper):
             {
                 "detailUrlPatterns": list(self.config.detail_url_patterns),
                 "referencePatterns": list(self.config.reference_patterns),
+                "preferCardTitleForPriceRows": self.config.prefer_card_title_for_price_rows,
             },
         )
         snapshots = [self._parse_item(item) for item in raw_items]
@@ -433,6 +435,9 @@ _DOM_EXTRACTION_SCRIPT = r"""
       );
     });
     if (span) return span.textContent.trim();
+    if (!config.preferCardTitleForPriceRows || !isPriceRow(anchor)) {
+      return label;
+    }
 
     const lines = (card.innerText || card.textContent || '')
       .split(/\n+/)
@@ -520,7 +525,7 @@ _DOM_EXTRACTION_SCRIPT = r"""
       continue;
     }
     const image = imageFor(card, anchor);
-    const text = isPriceRow(anchor)
+    const text = config.preferCardTitleForPriceRows && isPriceRow(anchor)
       ? `${anchor.innerText || anchor.textContent || ''}\n${ref}`.trim()
       : cardText;
     byRef.set(ref, {

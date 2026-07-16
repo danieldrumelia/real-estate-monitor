@@ -15,5 +15,6 @@ class DMPropertiesScraper(GenericAgencyScraper):
                 timeout_ms=timeout_ms,
                 max_pages=max_pages,
                 retries=retries,
+                prefer_card_title_for_price_rows=True,
             )
         )
