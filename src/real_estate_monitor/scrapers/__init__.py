@@ -32,7 +32,14 @@ def build_scraper(site: str, settings: Settings, max_pages: int | None = None) -
     if normalized == "drumelia":
         return DrumeliaScraper(**common)
     if normalized == "solvilla":
-        return SolvillaScraper(**common)
+        return SolvillaScraper(
+            **{
+                **common,
+                "proxy_server": settings.solvilla_proxy_server or settings.scraper_proxy_server,
+                "proxy_username": settings.solvilla_proxy_username or settings.scraper_proxy_username,
+                "proxy_password": settings.solvilla_proxy_password or settings.scraper_proxy_password,
+            }
+        )
     if normalized == "homerun":
         return HomerunScraper(**common)
     if normalized == "dmproperties":

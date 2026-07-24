@@ -26,7 +26,18 @@ SOLVILLA_USER_AGENT = (
 
 
 class SolvillaScraper(GenericAgencyScraper):
-    def __init__(self, *, headless: bool, timeout_ms: int, max_pages: int, retries: int) -> None:
+    def __init__(
+        self,
+        *,
+        headless: bool,
+        timeout_ms: int,
+        max_pages: int,
+        retries: int,
+        proxy_server: str | None = None,
+        proxy_username: str | None = None,
+        proxy_password: str | None = None,
+    ) -> None:
+        self._last_empty_page_diagnostic: str | None = None
         super().__init__(
             AgencyScraperConfig(
                 site_name="solvilla",
@@ -37,6 +48,9 @@ class SolvillaScraper(GenericAgencyScraper):
                 timeout_ms=timeout_ms,
                 max_pages=max_pages,
                 retries=retries,
+                proxy_server=proxy_server,
+                proxy_username=proxy_username,
+                proxy_password=proxy_password,
             )
         )
 
@@ -147,7 +161,13 @@ class SolvillaScraper(GenericAgencyScraper):
         logger.warning("Solvilla DOM fallback returned 0 listings; trying HTTP HTML fallback")
         raw_items = await asyncio.to_thread(_fetch_solvilla_fallback_items, page.url)
         http_snapshots = [self._parse_item(item) for item in raw_items]
-        return [snapshot for snapshot in http_snapshots if snapshot is not None]
+        snapshots = [snapshot for snapshot in http_snapshots if snapshot is not None]
+        if snapshots:
+            return snapshots
+
+        self._last_empty_page_diagnostic = await self._page_diagnostic(page)
+        logger.warning("Solvilla extracted 0 listings. %s", self._last_empty_page_diagnostic)
+        return []
 
     async def _wait_for_listing_links(self, page: Page) -> None:
         try:
@@ -242,6 +262,12 @@ class SolvillaScraper(GenericAgencyScraper):
         return []
 
     def _validate_expected_total(self, listing_count: int, total_properties: int | None) -> None:
+        if listing_count == 0:
+            diagnostic = self._last_empty_page_diagnostic or "No page diagnostic was captured."
+            raise ScrapeIncompleteError(
+                "Solvilla loaded 0 listings. This usually means the cloud server was blocked or served "
+                f"a non-listing page. {diagnostic}"
+            )
         if _has_safe_listing_count(listing_count, total_properties):
             return
         minimum_count = int((total_properties or 0) * MIN_EXPECTED_LISTING_RATIO)
@@ -249,6 +275,22 @@ class SolvillaScraper(GenericAgencyScraper):
             f"Solvilla scrape found {listing_count} listings, but the site says there are "
             f"{total_properties}. The safety minimum is {minimum_count}, so this run was not saved."
         )
+
+    async def _page_diagnostic(self, page: Page) -> str:
+        try:
+            title = await page.title()
+        except Exception:
+            title = "unknown"
+        try:
+            url = page.url
+        except Exception:
+            url = "unknown"
+        try:
+            text = await page.locator("body").inner_text(timeout=2000)
+        except Exception:
+            text = ""
+        text_start = _normalize_diagnostic_text(text[:500])
+        return f"Page URL: {url!r}. Page title: {title!r}. Text starts: {text_start!r}."
 
 
 def _has_new_listing(snapshots: list[ListingSnapshot], known_external_ids: Iterable[str]) -> bool:
@@ -260,6 +302,10 @@ def _has_safe_listing_count(listing_count: int, total_properties: int | None) ->
     if not total_properties:
         return True
     return listing_count >= int(total_properties * MIN_EXPECTED_LISTING_RATIO)
+
+
+def _normalize_diagnostic_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def _fetch_solvilla_fallback_items(url: str) -> list[dict[str, str | None]]:

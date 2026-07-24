@@ -30,6 +30,9 @@ class AgencyScraperConfig:
     max_pages: int = 0
     retries: int = 3
     prefer_card_title_for_price_rows: bool = False
+    proxy_server: str | None = None
+    proxy_username: str | None = None
+    proxy_password: str | None = None
 
 
 class GenericAgencyScraper(PropertyScraper):
@@ -41,6 +44,9 @@ class GenericAgencyScraper(PropertyScraper):
     async def scrape(self) -> list[ListingSnapshot]:
         async with async_playwright() as playwright:
             launch_options: dict[str, object] = {"headless": self.config.headless}
+            proxy_options = self._proxy_options()
+            if proxy_options:
+                launch_options["proxy"] = proxy_options
             executable_path = _chrome_for_testing_executable()
             if self.config.headless:
                 launch_options["args"] = [
@@ -58,6 +64,17 @@ class GenericAgencyScraper(PropertyScraper):
                 return await self._scrape_with_browser(browser)
             finally:
                 await browser.close()
+
+    def _proxy_options(self) -> dict[str, str] | None:
+        if not self.config.proxy_server:
+            return None
+        proxy = {"server": self.config.proxy_server}
+        if self.config.proxy_username:
+            proxy["username"] = self.config.proxy_username
+        if self.config.proxy_password:
+            proxy["password"] = self.config.proxy_password
+        logger.info("Using proxy for %s scraper: %s", self.site_name, self.config.proxy_server)
+        return proxy
 
     async def _scrape_with_browser(self, browser: Browser) -> list[ListingSnapshot]:
         page = await self._new_page(browser)

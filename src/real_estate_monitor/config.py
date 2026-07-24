@@ -26,6 +26,12 @@ class Settings:
     scraper_retries: int
     scraper_min_listing_ratio: float
     scraper_max_removals_per_run: int
+    scraper_proxy_server: str | None
+    scraper_proxy_username: str | None
+    scraper_proxy_password: str | None
+    solvilla_proxy_server: str | None
+    solvilla_proxy_username: str | None
+    solvilla_proxy_password: str | None
     telegram_enabled: bool
     telegram_bot_token: str | None
     telegram_chat_id: str | None
@@ -61,6 +67,12 @@ class Settings:
             scraper_retries=int(os.getenv("SCRAPER_RETRIES", "3")),
             scraper_min_listing_ratio=float(os.getenv("SCRAPER_MIN_LISTING_RATIO", "0.85")),
             scraper_max_removals_per_run=int(os.getenv("SCRAPER_MAX_REMOVALS_PER_RUN", "10")),
+            scraper_proxy_server=os.getenv("SCRAPER_PROXY_SERVER") or None,
+            scraper_proxy_username=os.getenv("SCRAPER_PROXY_USERNAME") or None,
+            scraper_proxy_password=os.getenv("SCRAPER_PROXY_PASSWORD") or None,
+            solvilla_proxy_server=os.getenv("SOLVILLA_PROXY_SERVER") or None,
+            solvilla_proxy_username=os.getenv("SOLVILLA_PROXY_USERNAME") or None,
+            solvilla_proxy_password=os.getenv("SOLVILLA_PROXY_PASSWORD") or None,
             telegram_enabled=_bool(os.getenv("TELEGRAM_ENABLED"), False),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN") or None,
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID") or None,
