@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import re
 from collections.abc import Iterable
+from html import unescape
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 
 from playwright.async_api import Browser, Page
 
@@ -105,7 +109,14 @@ class SolvillaScraper(GenericAgencyScraper):
         logger.warning("Solvilla generic extraction returned 0 listings; trying Solvilla fallback extraction")
         raw_items = await page.evaluate(_SOLVILLA_FALLBACK_EXTRACTION_SCRIPT)
         fallback_snapshots = [self._parse_item(item) for item in raw_items]
-        return [snapshot for snapshot in fallback_snapshots if snapshot is not None]
+        snapshots = [snapshot for snapshot in fallback_snapshots if snapshot is not None]
+        if snapshots:
+            return snapshots
+
+        logger.warning("Solvilla DOM fallback returned 0 listings; trying HTTP HTML fallback")
+        raw_items = await asyncio.to_thread(_fetch_solvilla_fallback_items, page.url)
+        http_snapshots = [self._parse_item(item) for item in raw_items]
+        return [snapshot for snapshot in http_snapshots if snapshot is not None]
 
     async def _wait_for_listing_links(self, page: Page) -> None:
         try:
@@ -218,6 +229,90 @@ def _has_safe_listing_count(listing_count: int, total_properties: int | None) ->
     if not total_properties:
         return True
     return listing_count >= int(total_properties * MIN_EXPECTED_LISTING_RATIO)
+
+
+def _fetch_solvilla_fallback_items(url: str) -> list[dict[str, str | None]]:
+    request = Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+        },
+    )
+    with urlopen(request, timeout=30) as response:
+        html = response.read().decode("utf-8", errors="replace")
+    return _parse_solvilla_html_items(html, base_url=url)
+
+
+def _parse_solvilla_html_items(html: str, *, base_url: str) -> list[dict[str, str | None]]:
+    detail_pattern = re.compile(r"/properties/.*/(?:pv|sv|sd)\d+/?(?:$|[?#])", re.I)
+    ref_pattern = re.compile(r"\b(?:PV|SV|SD)\d+\b", re.I)
+    anchor_pattern = re.compile(
+        r"<a\b[^>]*\bhref=(['\"])(?P<href>.*?)\1[^>]*>(?P<body>.*?)</a>",
+        re.I | re.S,
+    )
+
+    items_by_ref: dict[str, dict[str, str | None]] = {}
+    for match in anchor_pattern.finditer(html):
+        url = urljoin(base_url, unescape(match.group("href")))
+        if not detail_pattern.search(url):
+            continue
+
+        text = _html_to_text(match.group("body"))
+        ref_match = ref_pattern.search(url) or ref_pattern.search(text)
+        if not ref_match:
+            continue
+
+        ref = ref_match.group(0).upper()
+        if ref in items_by_ref:
+            continue
+
+        title = _solvilla_title_from_text(text, ref)
+        items_by_ref[ref] = {
+            "title": title,
+            "cleanTitle": title,
+            "url": url,
+            "text": text,
+            "image": None,
+        }
+
+    return list(items_by_ref.values())
+
+
+def _html_to_text(value: str) -> str:
+    value = re.sub(r"<(script|style)\b.*?</\1>", " ", value, flags=re.I | re.S)
+    value = re.sub(r"</?(?:p|div|li|br|span|h[1-6])\b[^>]*>", "\n", value, flags=re.I)
+    value = re.sub(r"<[^>]+>", " ", value)
+    lines = [line.strip() for line in unescape(value).splitlines()]
+    return "\n".join(line for line in lines if line)
+
+
+def _solvilla_title_from_text(text: str, fallback: str) -> str:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    ref_index = next(
+        (index for index, line in enumerate(lines) if re.match(rf"^#?{re.escape(fallback)}\b", line, re.I)),
+        -1,
+    )
+    if ref_index < 0:
+        return fallback
+
+    skip_pattern = re.compile(
+        r"^(exclusive|development|sold|beds?:|baths?:|built:|plot:|from\s+\d|"
+        r"view property|view development|save property|save development)$",
+        re.I,
+    )
+    for line in lines[ref_index + 1 :]:
+        if skip_pattern.match(line):
+            continue
+        if re.match(r"^\d", line) or line.endswith("€"):
+            continue
+        if len(line) > 5:
+            return line
+    return fallback
 
 
 _SOLVILLA_FALLBACK_EXTRACTION_SCRIPT = r"""
