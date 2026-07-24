@@ -96,6 +96,29 @@ class SolvillaScraper(GenericAgencyScraper):
             return int(re.sub(r"\D", "", count_match.group(1)))
         return None
 
+    async def _extract_loaded_page(self, page: Page) -> list[ListingSnapshot]:
+        await self._wait_for_listing_links(page)
+        snapshots = await super()._extract_loaded_page(page)
+        if snapshots:
+            return snapshots
+
+        logger.warning("Solvilla generic extraction returned 0 listings; trying Solvilla fallback extraction")
+        raw_items = await page.evaluate(_SOLVILLA_FALLBACK_EXTRACTION_SCRIPT)
+        fallback_snapshots = [self._parse_item(item) for item in raw_items]
+        return [snapshot for snapshot in fallback_snapshots if snapshot is not None]
+
+    async def _wait_for_listing_links(self, page: Page) -> None:
+        try:
+            await page.wait_for_function(
+                """() => [...document.querySelectorAll('a[href]')].some((anchor) => {
+                    const href = new URL(anchor.getAttribute('href'), location.href).href;
+                    return /\\/properties\\/.*\\/(?:pv|sv|sd)\\d+\\/?(?:$|[?#])/i.test(href);
+                })""",
+                timeout=min(self.config.timeout_ms, 10_000),
+            )
+        except Exception:
+            logger.debug("Timed out waiting for Solvilla listing links; continuing with current DOM", exc_info=True)
+
     async def _detect_total_pages(self, page: Page, *, total_properties: int | None) -> int:
         numbers = await page.locator("button, a").evaluate_all(
             """nodes => nodes
@@ -195,3 +218,56 @@ def _has_safe_listing_count(listing_count: int, total_properties: int | None) ->
     if not total_properties:
         return True
     return listing_count >= int(total_properties * MIN_EXPECTED_LISTING_RATIO)
+
+
+_SOLVILLA_FALLBACK_EXTRACTION_SCRIPT = r"""
+() => {
+  const refPattern = /\b(?:PV|SV|SD)\d+\b/i;
+  const detailPattern = /\/properties\/.*\/(?:pv|sv|sd)\d+\/?(?:$|[?#])/i;
+  const anchors = [...document.querySelectorAll('a[href]')].filter((anchor) => {
+    const href = new URL(anchor.getAttribute('href'), location.href).href;
+    return detailPattern.test(href);
+  });
+
+  function titleFrom(text, fallback) {
+    const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    const refIndex = lines.findIndex((line) => /^#?(?:PV|SV|SD)\d+\b/i.test(line));
+    if (refIndex < 0) return fallback;
+
+    for (const line of lines.slice(refIndex + 1)) {
+      if (/^(exclusive|development|sold|beds?:|baths?:|built:|plot:|from\s+\d|view property|view development|save property|save development)$/i.test(line)) {
+        continue;
+      }
+      if (/^\d/.test(line) || /€$/.test(line)) {
+        continue;
+      }
+      if (line.length > 5) return line;
+    }
+    return fallback;
+  }
+
+  function imageFor(anchor) {
+    for (const image of [...anchor.querySelectorAll('img')]) {
+      const url = image.currentSrc || image.src || image.getAttribute('data-src') || image.getAttribute('data-lazy-src');
+      if (url && !String(url).startsWith('data:')) return new URL(url, location.href).href;
+    }
+    return null;
+  }
+
+  const byRef = new Map();
+  for (const anchor of anchors) {
+    const href = new URL(anchor.getAttribute('href'), location.href).href;
+    const text = (anchor.innerText || anchor.textContent || '').trim();
+    const ref = (href.match(refPattern) || text.match(refPattern))?.[0]?.toUpperCase();
+    if (!ref || byRef.has(ref)) continue;
+    byRef.set(ref, {
+      title: titleFrom(text, ref),
+      cleanTitle: titleFrom(text, ref),
+      url: href,
+      text,
+      image: imageFor(anchor),
+    });
+  }
+  return [...byRef.values()];
+}
+"""
