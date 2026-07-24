@@ -6,6 +6,7 @@ import math
 import re
 from collections.abc import Iterable
 from html import unescape
+from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
@@ -18,6 +19,10 @@ from real_estate_monitor.scrapers.generic_agency import AgencyScraperConfig, Gen
 logger = logging.getLogger(__name__)
 
 MIN_EXPECTED_LISTING_RATIO = 0.85
+SOLVILLA_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+)
 
 
 class SolvillaScraper(GenericAgencyScraper):
@@ -34,6 +39,32 @@ class SolvillaScraper(GenericAgencyScraper):
                 retries=retries,
             )
         )
+
+    async def _new_page(self, browser: Browser) -> Page:
+        page = await browser.new_page(
+            locale="en-US",
+            user_agent=SOLVILLA_USER_AGENT,
+            viewport={"width": 1365, "height": 900},
+        )
+        page.set_default_timeout(self.config.timeout_ms)
+        await page.set_extra_http_headers(
+            {
+                "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+                "Referer": "https://www.google.com/",
+            }
+        )
+        await page.add_init_script(
+            "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+        )
+        await page.route(
+            "**/*",
+            lambda route: (
+                route.abort()
+                if route.request.resource_type in {"image", "media", "font"}
+                else route.continue_()
+            ),
+        )
+        return page
 
     async def _scrape_with_browser(self, browser: Browser) -> list[ListingSnapshot]:
         page = await self._new_page(browser)
@@ -235,16 +266,18 @@ def _fetch_solvilla_fallback_items(url: str) -> list[dict[str, str | None]]:
     request = Request(
         url,
         headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-            ),
+            "User-Agent": SOLVILLA_USER_AGENT,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+            "Referer": "https://www.google.com/",
         },
     )
-    with urlopen(request, timeout=30) as response:
-        html = response.read().decode("utf-8", errors="replace")
+    try:
+        with urlopen(request, timeout=30) as response:
+            html = response.read().decode("utf-8", errors="replace")
+    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+        logger.warning("Solvilla HTTP fallback failed for %s: %s", url, exc)
+        return []
     return _parse_solvilla_html_items(html, base_url=url)
 
 

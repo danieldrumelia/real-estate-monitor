@@ -1,8 +1,10 @@
 from real_estate_monitor.scrapers.solvilla import (
     SolvillaScraper,
+    _fetch_solvilla_fallback_items,
     _has_safe_listing_count,
     _parse_solvilla_html_items,
 )
+from urllib.error import HTTPError
 
 
 def test_solvilla_accepts_pv_references() -> None:
@@ -44,3 +46,12 @@ def test_solvilla_html_fallback_parses_static_listing_cards() -> None:
             "image": None,
         }
     ]
+
+
+def test_solvilla_http_fallback_returns_empty_list_when_blocked(monkeypatch) -> None:
+    def blocked_urlopen(*args, **kwargs):
+        raise HTTPError("https://www.solvilla.es/properties/", 403, "Forbidden", None, None)
+
+    monkeypatch.setattr("real_estate_monitor.scrapers.solvilla.urlopen", blocked_urlopen)
+
+    assert _fetch_solvilla_fallback_items("https://www.solvilla.es/properties/") == []
