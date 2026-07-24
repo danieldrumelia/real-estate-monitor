@@ -22,8 +22,8 @@ class SolvillaScraper(GenericAgencyScraper):
             AgencyScraperConfig(
                 site_name="solvilla",
                 start_url="https://www.solvilla.es/properties/",
-                detail_url_patterns=(r"/properties/.*/(?:sv|sd)\d+/?(?:$|[?#])",),
-                reference_patterns=(r"(?:SV|SD)\d+",),
+                detail_url_patterns=(r"/properties/.*/(?:pv|sv|sd)\d+/?(?:$|[?#])",),
+                reference_patterns=(r"(?:PV|SV|SD)\d+",),
                 headless=headless,
                 timeout_ms=timeout_ms,
                 max_pages=max_pages,
@@ -54,7 +54,7 @@ class SolvillaScraper(GenericAgencyScraper):
 
             for page_number in range(1, total_pages + 1):
                 try:
-                    snapshots = await self._extract_page_number(page, page_number, listings.keys())
+                    snapshots = await self._extract_next_page(page, page_number, listings.keys())
                 except ScrapeIncompleteError:
                     if _has_safe_listing_count(len(listings), total_properties):
                         logger.warning(
@@ -111,7 +111,7 @@ class SolvillaScraper(GenericAgencyScraper):
             return max(paginator_pages, count_pages)
         return paginator_pages
 
-    async def _extract_page_number(
+    async def _extract_next_page(
         self,
         page: Page,
         page_number: int,
@@ -120,11 +120,9 @@ class SolvillaScraper(GenericAgencyScraper):
         if page_number == 1:
             return await self._extract_loaded_page(page)
 
-        if await self._go_to_page(page, page_number):
-            snapshots = await self._extract_loaded_page(page)
-            if _has_new_listing(snapshots, known_external_ids):
-                return snapshots
-            logger.warning("Solvilla page %s click produced no new listings; trying direct URLs", page_number)
+        snapshots = await self._click_next_page(page, page_number, known_external_ids)
+        if snapshots:
+            return snapshots
 
         snapshots = await self._extract_direct_page(page, page_number, known_external_ids)
         if snapshots:
@@ -160,20 +158,23 @@ class SolvillaScraper(GenericAgencyScraper):
             f"{base_url}/page/{page_number}/",
         )
 
-    async def _go_to_page(self, page: Page, page_number: int) -> bool:
-        page_button = page.get_by_text(str(page_number), exact=True).last
+    async def _click_next_page(
+        self,
+        page: Page,
+        page_number: int,
+        known_external_ids: Iterable[str],
+    ) -> list[ListingSnapshot]:
+        next_button = page.get_by_role("button", name=re.compile(r"^Next page$", re.I)).last
         try:
-            await page_button.click(timeout=2500)
-            await page.wait_for_timeout(900)
-            return True
+            await next_button.click(timeout=2500)
+            await page.wait_for_timeout(1200)
+            snapshots = await self._extract_loaded_page(page)
+            if _has_new_listing(snapshots, known_external_ids):
+                return snapshots
+            logger.warning("Solvilla next-page click produced no new listings for page %s", page_number)
         except Exception:
-            next_button = page.get_by_text(re.compile(r"next|siguiente|›|»", re.I)).last
-            try:
-                await next_button.click(timeout=2500)
-                await page.wait_for_timeout(900)
-                return True
-            except Exception:
-                return False
+            logger.debug("Solvilla next-page click failed for page %s", page_number, exc_info=True)
+        return []
 
     def _validate_expected_total(self, listing_count: int, total_properties: int | None) -> None:
         if _has_safe_listing_count(listing_count, total_properties):
