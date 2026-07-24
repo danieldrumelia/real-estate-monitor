@@ -26,12 +26,6 @@ services:
         value: "0.85"
       - key: SCRAPER_MAX_REMOVALS_PER_RUN
         value: "10"
-      - key: SOLVILLA_PROXY_SERVER
-        sync: false
-      - key: SOLVILLA_PROXY_USERNAME
-        sync: false
-      - key: SOLVILLA_PROXY_PASSWORD
-        sync: false
       - key: EMAIL_ENABLED
         value: "true"
       - key: EMAIL_SMTP_HOST

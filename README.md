@@ -30,7 +30,7 @@ cp .env.example .env
 ## Run
 
 ```bash
-real-estate-monitor scrape solvilla
+real-estate-monitor scrape drumelia
 real-estate-monitor scrape all
 real-estate-monitor scheduled-scrape
 real-estate-monitor check-config
@@ -39,8 +39,8 @@ real-estate-monitor check-config
 Useful options:
 
 ```bash
-real-estate-monitor scrape solvilla --max-pages 3
-real-estate-monitor scrape solvilla --no-notifications
+real-estate-monitor scrape drumelia --max-pages 3
+real-estate-monitor scrape drumelia --no-notifications
 real-estate-monitor list-sites
 real-estate-monitor check-config
 ```
@@ -66,7 +66,7 @@ SCRAPE_SCHEDULE_TIMEZONE=Europe/Madrid
 
 Registered sites:
 
-- `solvilla`
+- `drumelia`
 - `homerun`
 - `dmproperties`
 - `panorama`
@@ -117,7 +117,7 @@ WHATSAPP_RECIPIENT=34600111222
 Run the scraper normally:
 
 ```bash
-real-estate-monitor scrape solvilla
+real-estate-monitor scrape drumelia
 ```
 
 Notifications are only sent when changes are detected.

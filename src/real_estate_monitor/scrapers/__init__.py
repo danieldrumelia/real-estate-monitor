@@ -13,7 +13,6 @@ from real_estate_monitor.scrapers.solvilla import SolvillaScraper
 def available_sites() -> tuple[str, ...]:
     return (
         "drumelia",
-        "solvilla",
         "homerun",
         "dmproperties",
         "panorama",
