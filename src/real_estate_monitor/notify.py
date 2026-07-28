@@ -4,6 +4,7 @@ import asyncio
 import logging
 import smtplib
 from email.message import EmailMessage
+from email.utils import parseaddr
 
 import httpx
 
@@ -65,10 +66,41 @@ class EmailNotifier:
             logger.warning("Email is enabled but SMTP host, sender, or recipients are missing")
             return
 
+        logger.info("Sending email to %s recipient(s)", len(self.recipients))
+        await asyncio.to_thread(self._send_messages, subject, text, html, attachment_name)
+
+    def _send_messages(
+        self,
+        subject: str,
+        text: str,
+        html: str | None,
+        attachment_name: str | None,
+    ) -> None:
+        with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as smtp:
+            if self.use_tls:
+                smtp.starttls()
+            if self.username and self.password:
+                smtp.login(self.username, self.password)
+            for recipient in self.recipients:
+                message = self._build_message(subject, text, html, attachment_name, recipient)
+                refused = smtp.send_message(message, from_addr=self.sender, to_addrs=[recipient])
+                if refused:
+                    logger.warning("SMTP refused email recipient: %s", _mask_email(recipient))
+                else:
+                    logger.info("SMTP accepted email recipient: %s", _mask_email(recipient))
+
+    def _build_message(
+        self,
+        subject: str,
+        text: str,
+        html: str | None,
+        attachment_name: str | None,
+        recipient: str,
+    ) -> EmailMessage:
         message = EmailMessage()
         message["Subject"] = subject
         message["From"] = self.sender
-        message["To"] = ", ".join(self.recipients)
+        message["To"] = recipient
         message.set_content(text)
         if html:
             message.add_alternative(html, subtype="html")
@@ -79,16 +111,7 @@ class EmailNotifier:
                 subtype="markdown",
                 filename=attachment_name,
             )
-        logger.info("Sending email to %s recipient(s)", len(self.recipients))
-        await asyncio.to_thread(self._send_message, message)
-
-    def _send_message(self, message: EmailMessage) -> None:
-        with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=30) as smtp:
-            if self.use_tls:
-                smtp.starttls()
-            if self.username and self.password:
-                smtp.login(self.username, self.password)
-            smtp.send_message(message, from_addr=self.sender, to_addrs=self.recipients)
+        return message
 
 
 class WhatsAppNotifier:
@@ -129,3 +152,12 @@ def _split_addresses(value: str | None) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _mask_email(value: str) -> str:
+    _, address = parseaddr(value)
+    if "@" not in address:
+        return "***"
+    local, domain = address.split("@", 1)
+    visible = local[:2] if len(local) > 2 else local[:1]
+    return f"{visible}***@{domain}"
