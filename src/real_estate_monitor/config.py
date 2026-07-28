@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import re
 import secrets
 from dataclasses import dataclass
+from email.utils import getaddresses
 from pathlib import Path
 from typing import List
 
@@ -98,9 +100,7 @@ class Settings:
 
     @property
     def email_recipients(self) -> List[str]:
-        if not self.email_to:
-            return []
-        return [item.strip() for item in self.email_to.split(",") if item.strip()]
+        return parse_email_recipients(self.email_to)
 
     def valid_web_credentials(self, username: str, password: str) -> bool:
         if not self.web_auth_enabled:
@@ -111,3 +111,10 @@ class Settings:
             password,
             self.web_password,
         )
+
+
+def parse_email_recipients(value: str | None) -> List[str]:
+    if not value:
+        return []
+    normalized = re.sub(r"[;\n\r]+", ",", value)
+    return [address.strip() for _, address in getaddresses([normalized]) if address.strip()]

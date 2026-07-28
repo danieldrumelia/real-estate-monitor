@@ -79,6 +79,7 @@ class EmailNotifier:
                 subtype="markdown",
                 filename=attachment_name,
             )
+        logger.info("Sending email to %s recipient(s)", len(self.recipients))
         await asyncio.to_thread(self._send_message, message)
 
     def _send_message(self, message: EmailMessage) -> None:
@@ -87,7 +88,7 @@ class EmailNotifier:
                 smtp.starttls()
             if self.username and self.password:
                 smtp.login(self.username, self.password)
-            smtp.send_message(message)
+            smtp.send_message(message, from_addr=self.sender, to_addrs=self.recipients)
 
 
 class WhatsAppNotifier:
