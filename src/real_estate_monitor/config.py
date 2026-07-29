@@ -68,7 +68,7 @@ class Settings:
             scraper_max_pages=int(os.getenv("SCRAPER_MAX_PAGES", "0")),
             scraper_retries=int(os.getenv("SCRAPER_RETRIES", "3")),
             scraper_min_listing_ratio=float(os.getenv("SCRAPER_MIN_LISTING_RATIO", "0.85")),
-            scraper_max_removals_per_run=int(os.getenv("SCRAPER_MAX_REMOVALS_PER_RUN", "10")),
+            scraper_max_removals_per_run=int(os.getenv("SCRAPER_MAX_REMOVALS_PER_RUN", "50")),
             scraper_proxy_server=os.getenv("SCRAPER_PROXY_SERVER") or None,
             scraper_proxy_username=os.getenv("SCRAPER_PROXY_USERNAME") or None,
             scraper_proxy_password=os.getenv("SCRAPER_PROXY_PASSWORD") or None,
