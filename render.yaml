@@ -17,11 +17,11 @@ services:
       - key: SCRAPER_HEADLESS
         value: "true"
       - key: SCRAPER_TIMEOUT_MS
-        value: "30000"
+        value: "60000"
       - key: SCRAPER_MAX_PAGES
         value: "0"
       - key: SCRAPER_RETRIES
-        value: "3"
+        value: "4"
       - key: SCRAPER_MIN_LISTING_RATIO
         value: "0.85"
       - key: SCRAPER_MAX_REMOVALS_PER_RUN
